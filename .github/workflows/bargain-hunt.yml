@@ -1,0 +1,46 @@
+name: PC Bargain Hunt
+
+on:
+  schedule:
+    # 7am AEST = 9pm UTC (previous day)
+    - cron: '0 21 * * *'
+    # 7pm AEST = 9am UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch: # allow manual trigger for testing
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # needed to commit seen_listings.json back to repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bargain hunter
+        run: python main.py
+        env:
+          EBAY_APP_ID: ${{ secrets.EBAY_APP_ID }}
+          EBAY_CERT_ID: ${{ secrets.EBAY_CERT_ID }}
+          GOOGLE_SHEETS_CREDENTIALS: ${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          CALLMEBOT_API_KEY: ${{ secrets.CALLMEBOT_API_KEY }}
+
+      - name: Commit updated seen listings
+        run: |
+          git config user.name "Bargain Bot"
+          git config user.email "bot@bargain-hunter.local"
+          git add seen_listings.json
+          # Only commit if seen_listings.json actually changed
+          git diff --cached --quiet || git commit -m "Update seen listings $(date +%Y-%m-%d_%H:%M)"
+          git push
